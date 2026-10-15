@@ -74,7 +74,11 @@ export default function CouncilOfficers() {
       setCredentialsResult(res.data?.credentials);
       fetchOfficers();
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Failed to create Council Officer.');
+      if (err.response?.status === 401) {
+        setErrorMsg('Session expired or unauthenticated for this backend server. Please log out and log back in.');
+      } else {
+        setErrorMsg(err.response?.data?.message || 'Failed to create Council Officer.');
+      }
     } finally {
       setActionLoading(false);
     }
