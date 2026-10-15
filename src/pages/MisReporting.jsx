@@ -1,25 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import {
   BarChart3,
   TrendingUp,
   Download,
-  Filter,
   Users,
   Award,
   BookOpen,
   DollarSign,
   Building2,
-  PieChart,
-  FileSpreadsheet,
-  CheckCircle2,
   RefreshCw,
-  Calendar,
-  Layers,
-  Sparkles
+  Sparkles,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+import apiClient from '../api/client';
 
 export default function MisReporting() {
   const [kpis, setKpis] = useState(null);
@@ -33,14 +27,9 @@ export default function MisReporting() {
   const [exportModal, setExportModal] = useState(false);
   const [exportConfig, setExportConfig] = useState({
     report_type: 'executive_kpis',
-    format: 'csv'
+    format: 'csv',
   });
   const [exporting, setExporting] = useState(false);
-
-  const getHeaders = () => {
-    const token = localStorage.getItem('token');
-    return { Authorization: `Bearer ${token}` };
-  };
 
   useEffect(() => {
     fetchReportData();
@@ -49,17 +38,17 @@ export default function MisReporting() {
   const fetchReportData = async () => {
     setLoading(true);
     try {
-      const [kpiRes, sectorRes, partnerRes, finRes] = await Promise.all([
-        axios.get(`${API_BASE}/reports/executive-kpis`, { headers: getHeaders() }),
-        axios.get(`${API_BASE}/reports/sector-performance`, { headers: getHeaders() }),
-        axios.get(`${API_BASE}/reports/partner-analytics`, { headers: getHeaders() }),
-        axios.get(`${API_BASE}/reports/financial-trends`, { headers: getHeaders() })
+      const [kpiRes, sectorRes, partnerRes, finRes] = await Promise.allSettled([
+        apiClient.get('/reports/executive-kpis'),
+        apiClient.get('/reports/sector-performance'),
+        apiClient.get('/reports/partner-analytics'),
+        apiClient.get('/reports/financial-trends'),
       ]);
 
-      setKpis(kpiRes.data.data);
-      setSectorData(sectorRes.data.data || []);
-      setPartnerData(partnerRes.data.data || []);
-      setFinancialData(finRes.data.data);
+      if (kpiRes.status === 'fulfilled') setKpis(kpiRes.value.data?.data || null);
+      if (sectorRes.status === 'fulfilled') setSectorData(sectorRes.value.data?.data || []);
+      if (partnerRes.status === 'fulfilled') setPartnerData(partnerRes.value.data?.data || []);
+      if (finRes.status === 'fulfilled') setFinancialData(finRes.value.data?.data || null);
     } catch (err) {
       console.error(err);
       setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to fetch MIS report analytics' });
@@ -72,18 +61,22 @@ export default function MisReporting() {
     e.preventDefault();
     setExporting(true);
     try {
-      const res = await axios.post(`${API_BASE}/reports/export`, exportConfig, { headers: getHeaders() });
-      const exportData = res.data.data;
-      
-      // Auto download link
-      const link = document.createElement('a');
-      link.href = exportData.download_url;
-      link.download = exportData.filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const res = await apiClient.post('/reports/export', exportConfig);
+      const exportData = res.data?.data;
 
-      setMessage({ type: 'success', text: `Report '${exportData.filename}' generated & downloaded successfully!` });
+      if (exportData?.download_url) {
+        const link = document.createElement('a');
+        link.href = exportData.download_url;
+        link.download = exportData.filename || 'report.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      setMessage({
+        type: 'success',
+        text: `Report '${exportData?.filename || 'report'}' generated and downloaded successfully!`,
+      });
       setExportModal(false);
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to trigger report export' });
@@ -93,284 +86,410 @@ export default function MisReporting() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Executive Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-2xl border border-indigo-900/40 shadow-xl backdrop-blur-md">
-        <div className="flex items-center space-x-4">
-          <div className="p-3.5 bg-indigo-500/10 rounded-2xl text-indigo-400 border border-indigo-500/20 shadow-inner">
-            <BarChart3 className="w-8 h-8" />
+      <section
+        style={{
+          background: 'linear-gradient(135deg, #102a35, #193b46)',
+          borderRadius: '12px',
+          padding: '2rem',
+          color: '#ffffff',
+          marginBottom: '2rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1.5rem',
+          flexWrap: 'wrap',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+        }}
+      >
+        <div style={{ maxWidth: '800px' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#38bdf8',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              marginBottom: '0.5rem',
+            }}
+          >
+            <Sparkles size={16} />
+            Governance Intelligence & Audits
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs uppercase font-bold tracking-wider text-indigo-400">Governance & Intelligence</span>
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            </div>
-            <h1 className="text-2xl font-black text-white tracking-tight">Executive MIS & Reporting Analytics</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Real-time Sector Skill Council Key Metrics, Partner Audits & Export Engine</p>
-          </div>
+
+          <h1
+            style={{
+              fontSize: '1.85rem',
+              fontWeight: 800,
+              margin: '0 0 0.5rem',
+              color: '#ffffff',
+            }}
+          >
+            Executive MIS & Reporting Analytics
+          </h1>
+
+          <p style={{ margin: 0, color: '#a9c0c6', fontSize: '0.95rem', lineHeight: 1.6 }}>
+            Real-time Sector Skill Council metrics, partner accreditation analytics, financial trends, and asynchronous export engine.
+          </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <button
             onClick={() => setExportModal(true)}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-medium shadow-lg hover:shadow-emerald-500/20 transition-all text-sm"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.25rem',
+              background: '#2563eb',
+              color: '#ffffff',
+              border: 0,
+              borderRadius: '10px',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
+            }}
           >
-            <Download className="w-4 h-4" />
-            <span>Async Export Report</span>
+            <Download size={16} />
+            Export Report
           </button>
+
           <button
             onClick={fetchReportData}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700"
-            title="Refresh MIS Data"
+            title="Refresh Data"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '42px',
+              height: '42px',
+              background: '#ffffff15',
+              color: '#ffffff',
+              border: '1px solid #ffffff25',
+              borderRadius: '10px',
+              cursor: 'pointer',
+            }}
           >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* Notification Toast */}
+      {/* Message Banner */}
       {message && (
         <div
-          className={`p-4 rounded-xl flex items-center justify-between border ${
-            message.type === 'success'
-              ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
-          }`}
+          style={{
+            padding: '1rem 1.25rem',
+            borderRadius: '10px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+            color: message.type === 'success' ? '#166534' : '#991b1b',
+            border: `1px solid ${message.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+            fontSize: '0.9rem',
+          }}
         >
-          <span className="text-sm font-medium">{message.text}</span>
-          <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-white text-sm font-bold">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+            <span>{message.text}</span>
+          </div>
+          <button
+            onClick={() => setMessage(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700 }}
+          >
             ✕
           </button>
         </div>
       )}
 
-      {/* KPI Overview Grid */}
+      {/* KPI Overview Cards */}
       {kpis && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-900/70 p-5 rounded-2xl border border-slate-800 shadow-md space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">Candidate Registry</span>
-              <Users className="w-5 h-5 text-cyan-400" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Candidate Registry</span>
+              <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: '#e0f2fe', display: 'grid', placeItems: 'center', color: '#0284c7' }}>
+                <Users size={20} />
+              </div>
             </div>
-            <p className="text-3xl font-black text-white">{kpis.total_candidates}</p>
-            <p className="text-xs text-slate-400 flex items-center gap-1">
-              <span className="text-emerald-400 font-semibold">{kpis.active_enrolments} Active</span> Enrolments
-            </p>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>
+              {kpis.total_candidates || 0}
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+              <strong style={{ color: '#16a34a' }}>{kpis.active_enrolments || 0}</strong> Active Enrolments
+            </div>
           </div>
 
-          <div className="bg-slate-900/70 p-5 rounded-2xl border border-slate-800 shadow-md space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">Completion Rate</span>
-              <TrendingUp className="w-5 h-5 text-emerald-400" />
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Completion Rate</span>
+              <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: '#dcfce7', display: 'grid', placeItems: 'center', color: '#16a34a' }}>
+                <TrendingUp size={20} />
+              </div>
             </div>
-            <p className="text-3xl font-black text-emerald-400">{kpis.completion_rate_pct}%</p>
-            <p className="text-xs text-slate-400 flex items-center gap-1">
-              <span className="text-white font-semibold">{kpis.completed_enrolments}</span> / {kpis.total_enrolments} Enrolments
-            </p>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#16a34a', marginBottom: '0.25rem' }}>
+              {kpis.completion_rate_pct || 0}%
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+              <strong>{kpis.completed_enrolments || 0}</strong> of {kpis.total_enrolments || 0} Enrolments
+            </div>
           </div>
 
-          <div className="bg-slate-900/70 p-5 rounded-2xl border border-slate-800 shadow-md space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">Certified Credentials</span>
-              <Award className="w-5 h-5 text-amber-400" />
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Certified Credentials</span>
+              <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: '#fef3c7', display: 'grid', placeItems: 'center', color: '#b45309' }}>
+                <Award size={20} />
+              </div>
             </div>
-            <p className="text-3xl font-black text-amber-400">{kpis.total_certificates_issued}</p>
-            <p className="text-xs text-slate-400">QR-Verified National Credentials</p>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#b45309', marginBottom: '0.25rem' }}>
+              {kpis.total_certificates_issued || 0}
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+              QR-Verified National Credentials
+            </div>
           </div>
 
-          <div className="bg-slate-900/70 p-5 rounded-2xl border border-slate-800 shadow-md space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">Total Revenue</span>
-              <DollarSign className="w-5 h-5 text-blue-400" />
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Commercial Revenue</span>
+              <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: '#f3e8ff', display: 'grid', placeItems: 'center', color: '#7e22ce' }}>
+                <DollarSign size={20} />
+              </div>
             </div>
-            <p className="text-3xl font-black text-blue-400">₹{kpis.total_revenue_inr.toLocaleString()}</p>
-            <p className="text-xs text-slate-400">
-              <span className="text-emerald-400 font-semibold">{kpis.successful_transactions} Paid</span> Transactions
-            </p>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#2563eb', marginBottom: '0.25rem' }}>
+              ₹{(kpis.total_revenue_inr || 0).toLocaleString()}
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+              <strong style={{ color: '#16a34a' }}>{kpis.successful_transactions || 0}</strong> Settled Transactions
+            </div>
           </div>
         </div>
       )}
 
       {/* Main Grid: Sector & Partner Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sector Performance */}
-        <div className="bg-slate-900/70 p-6 rounded-2xl border border-slate-800 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <BookOpen className="w-5 h-5 text-cyan-400" />
-              <h3 className="text-lg font-bold text-white">Sector & QP Performance</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '1.5rem' }}>
+        {/* Sector Performance Card */}
+        <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <BookOpen size={20} color="#0284c7" />
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 700 }}>
+                Sector & Qualification Packs
+              </h3>
             </div>
-            <span className="text-xs text-slate-400 font-mono">{sectorData.length} Sectors Active</span>
+            <span style={{ fontSize: '0.8rem', color: '#64748b', fontFamily: 'monospace' }}>
+              {sectorData.length} Active Sectors
+            </span>
           </div>
 
-          <div className="space-y-4 pt-2">
-            {sectorData.map((sec) => (
-              <div key={sec.sector_id} className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="px-2 py-0.5 text-xs font-bold bg-cyan-500/10 text-cyan-400 rounded-md uppercase">
-                      {sec.code}
-                    </span>
-                    <span className="font-bold text-white text-sm">{sec.name}</span>
-                  </div>
-                  <span className="text-xs font-bold text-emerald-400">{sec.completion_rate_pct}% Pass Rate</span>
-                </div>
-
-                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(sec.completion_rate_pct || 0, 100)}%` }}
-                  ></div>
-                </div>
-
-                <div className="flex justify-between text-xs text-slate-400 pt-1">
-                  <span>QPs: {sec.total_qps}</span>
-                  <span>Enrolments: {sec.total_enrolments}</span>
-                  <span>Certificates: {sec.total_certificates}</span>
-                </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {sectorData.length === 0 ? (
+              <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>
+                No sector performance records available.
               </div>
-            ))}
+            ) : (
+              sectorData.map((sec) => (
+                <div key={sec.sector_id || sec.code} style={{ padding: '1rem', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ padding: '2px 6px', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                        {sec.code}
+                      </span>
+                      <strong style={{ color: '#0f172a', fontSize: '0.9rem' }}>{sec.name}</strong>
+                    </div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#16a34a' }}>
+                      {sec.completion_rate_pct || 0}% Completion
+                    </span>
+                  </div>
 
-            {sectorData.length === 0 && !loading && (
-              <div className="p-8 text-center text-slate-500 text-sm">No sector performance data available.</div>
+                  <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden', marginBottom: '0.5rem' }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        borderRadius: '999px',
+                        background: 'linear-gradient(90deg, #0284c7, #16a34a)',
+                        width: `${Math.min(sec.completion_rate_pct || 0, 100)}%`,
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
+                    <span>QPs: {sec.total_qps || 0}</span>
+                    <span>Enrolments: {sec.total_enrolments || 0}</span>
+                    <span>Certificates: {sec.total_certificates || 0}</span>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
 
-        {/* Partner & Training Center Network */}
-        <div className="bg-slate-900/70 p-6 rounded-2xl border border-slate-800 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Building2 className="w-5 h-5 text-indigo-400" />
-              <h3 className="text-lg font-bold text-white">Partner Network & Capacity</h3>
+        {/* Partner Network Card */}
+        <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Building2 size={20} color="#2563eb" />
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 700 }}>
+                Partner Network & Centres
+              </h3>
             </div>
-            <span className="text-xs text-slate-400 font-mono">{partnerData.length} Partners</span>
+            <span style={{ fontSize: '0.8rem', color: '#64748b', fontFamily: 'monospace' }}>
+              {partnerData.length} Organisations
+            </span>
           </div>
 
-          <div className="overflow-x-auto pt-2">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-950/80 text-xs uppercase text-slate-400 border-b border-slate-800">
-                <tr>
-                  <th className="p-3">Partner Entity</th>
-                  <th className="p-3">Type</th>
-                  <th className="p-3">Centres</th>
-                  <th className="p-3">Candidates</th>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 700 }}>
+                  <th style={{ padding: '0.75rem 1rem' }}>Partner Entity</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Type</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Centres</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Candidates</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {partnerData.map((pt) => (
-                  <tr key={pt.organisation_id} className="hover:bg-slate-800/30">
-                    <td className="p-3 font-medium text-white">
-                      <div>{pt.name}</div>
-                      <span className="text-xs text-slate-400 font-mono">{pt.code}</span>
+              <tbody>
+                {partnerData.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>
+                      No partner analytics available yet.
                     </td>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded text-xs uppercase font-semibold">
-                        {pt.type}
-                      </span>
-                    </td>
-                    <td className="p-3 font-mono text-cyan-400 font-semibold">{pt.training_centres_count}</td>
-                    <td className="p-3 font-mono text-emerald-400 font-semibold">{pt.candidates_enrolled}</td>
                   </tr>
-                ))}
+                ) : (
+                  partnerData.map((p) => (
+                    <tr key={p.organisation_id || p.legal_name} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#0f172a' }}>
+                        {p.legal_name || p.name}
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem' }}>
+                        <span
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            background: '#f1f5f9',
+                            color: '#475569',
+                          }}
+                        >
+                          {p.type || 'TP'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', color: '#64748b' }}>
+                        {p.training_centres_count || 0}
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#2563eb' }}>
+                        {p.total_candidates_enrolled ?? p.candidates_enrolled ?? 0}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
-
-            {partnerData.length === 0 && !loading && (
-              <div className="p-8 text-center text-slate-500 text-sm">No partner analytics data recorded.</div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Financial & Revenue Breakdown */}
-      {financialData && (
-        <div className="bg-slate-900/70 p-6 rounded-2xl border border-slate-800 shadow-xl space-y-4">
-          <div className="flex items-center space-x-2">
-            <PieChart className="w-5 h-5 text-blue-400" />
-            <h3 className="text-lg font-bold text-white">Financial & GST Tax Invoicing Breakdown</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-xs text-slate-400 uppercase font-semibold">Total Invoices Issued</span>
-              <p className="text-2xl font-extrabold text-white">{financialData.invoice_summary.total_invoices}</p>
-              <p className="text-xs text-slate-400">Total B2C / B2B billing records</p>
-            </div>
-
-            <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-xs text-slate-400 uppercase font-semibold">Total Tax (GST Collected)</span>
-              <p className="text-2xl font-extrabold text-amber-400">₹{financialData.invoice_summary.total_tax_gst.toLocaleString()}</p>
-              <p className="text-xs text-slate-400">18% GST Compliance ledger</p>
-            </div>
-
-            <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-xs text-slate-400 uppercase font-semibold">Settled Paid Value</span>
-              <p className="text-2xl font-extrabold text-emerald-400">₹{financialData.invoice_summary.paid_invoices_value.toLocaleString()}</p>
-              <p className="text-xs text-slate-400">Reconciled bank settlement total</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Async Export Engine */}
+      {/* EXPORT MODAL */}
       {exportModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center space-x-3">
-              <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20">
-                <FileSpreadsheet className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">Asynchronous Report Export Engine</h3>
-                <p className="text-xs text-slate-400">Generate governed CSV/XLSX downloads with audit log tracing</p>
-              </div>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '480px',
+              width: '100%',
+              padding: '1.75rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingBottom: '1rem',
+                borderBottom: '1px solid #e2e8f0',
+                marginBottom: '1.25rem',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>
+                Export MIS Report
+              </h3>
+              <button
+                onClick={() => setExportModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleTriggerExport} className="space-y-4">
+            <form onSubmit={handleTriggerExport} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Select Report Type</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Report Target *
+                </label>
                 <select
                   value={exportConfig.report_type}
                   onChange={(e) => setExportConfig({ ...exportConfig, report_type: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500"
+                  style={{ width: '100%', padding: '0.65rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
                 >
-                  <option value="executive_kpis">Executive KPI Summary</option>
-                  <option value="candidates_roster">Candidates Roster & Status</option>
-                  <option value="partner_analytics">Partner Network & Centres</option>
-                  <option value="sector_performance">Sector & QP Performance</option>
-                  <option value="financial_trends">Financial Trends & Invoices</option>
+                  <option value="executive_kpis">Executive Key Performance Indicators</option>
+                  <option value="sector_performance">Sector & QP Performance Metrics</option>
+                  <option value="partner_analytics">Partner Accreditation & Delivery Capacity</option>
+                  <option value="financial_trends">Commercial Transactions & Billing Ledger</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Export File Format</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Output Format *
+                </label>
                 <select
                   value={exportConfig.format}
                   onChange={(e) => setExportConfig({ ...exportConfig, format: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500"
+                  style={{ width: '100%', padding: '0.65rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
                 >
-                  <option value="csv">CSV (Comma-Separated Values)</option>
-                  <option value="xlsx">XLSX (Microsoft Excel)</option>
-                  <option value="pdf">PDF Report Summary Document</option>
+                  <option value="csv">Standard CSV Document</option>
+                  <option value="json">Machine-Readable JSON</option>
                 </select>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t border-slate-800">
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
                 <button
                   type="button"
                   onClick={() => setExportModal(false)}
-                  className="px-4 py-2 text-slate-400 hover:text-white text-sm font-medium"
+                  style={{ padding: '0.65rem 1rem', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={exporting}
-                  className="flex items-center space-x-2 px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-sm font-medium shadow-lg shadow-emerald-600/20"
+                  style={{ padding: '0.65rem 1.25rem', background: '#2563eb', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.7 : 1 }}
                 >
-                  <Download className="w-4 h-4" />
-                  <span>{exporting ? 'Generating Report...' : 'Generate & Download'}</span>
+                  {exporting ? 'Generating...' : 'Download Report'}
                 </button>
               </div>
             </form>

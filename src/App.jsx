@@ -226,6 +226,7 @@ const ALL_NAVIGATION_GROUPS = [
 ];
 
 function getUserRole(user) {
+  console.log('Logged-in user:', user);
   if (!Array.isArray(user?.roles) || user.roles.length === 0) {
     return null;
   }
@@ -497,6 +498,7 @@ function RoleDashboard() {
             fontSize: '1.85rem',
             fontWeight: 800,
             margin: '0 0 0.75rem',
+            color: '#ffffff',
           }}
         >
           {config.title}

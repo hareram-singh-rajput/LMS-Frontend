@@ -100,8 +100,21 @@ h3,
 h4,
 h5,
 h6 {
-  color: var(--color-text);
+  color: inherit;
   line-height: 1.25;
+}
+
+/* Color utility classes for high-contrast accessibility */
+.text-white {
+  color: #ffffff !important;
+}
+
+.text-dark {
+  color: var(--color-text) !important;
+}
+
+.text-muted {
+  color: var(--color-muted) !important;
 }
 
 input,

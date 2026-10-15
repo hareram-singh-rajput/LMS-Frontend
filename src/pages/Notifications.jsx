@@ -1,4 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Bell,
+  Send,
+  Mail,
+  MessageSquare,
+  Smartphone,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Layers
+} from 'lucide-react';
 import api from '../api/client';
 
 export default function Notifications() {
@@ -12,7 +23,15 @@ export default function Notifications() {
   const [dispatchForm, setDispatchForm] = useState({
     channel: 'email',
     template_code: 'CERTIFICATE_ISSUED',
-    variables: JSON.stringify({ candidate_name: 'Aarav Sharma', course_title: 'Full-Stack Web Engineering', verification_token: 'VERIFY-NATIONAL-2026-001' }, null, 2),
+    variables: JSON.stringify(
+      {
+        candidate_name: 'Aarav Sharma',
+        course_title: 'Full-Stack Web Engineering',
+        verification_token: 'VERIFY-NATIONAL-2026-001',
+      },
+      null,
+      2
+    ),
   });
 
   useEffect(() => {
@@ -27,8 +46,8 @@ export default function Notifications() {
         api.get('/notifications'),
       ]);
 
-      setTemplates(tplRes.data.data || []);
-      setNotifications(notifRes.data.data?.data || notifRes.data.data || []);
+      setTemplates(tplRes.data?.data || []);
+      setNotifications(notifRes.data?.data?.data || notifRes.data?.data || []);
     } catch (err) {
       console.error('Error fetching notifications:', err);
       setMessage({ type: 'danger', text: 'Failed to load notifications data.' });
@@ -48,98 +67,230 @@ export default function Notifications() {
         variables: parsedVars,
       });
 
-      setMessage({ type: 'success', text: `Asynchronous notification dispatched via ${dispatchForm.channel} channel!` });
+      setMessage({
+        type: 'success',
+        text: `Asynchronous notification dispatched via ${dispatchForm.channel} channel!`,
+      });
       setShowDispatchModal(false);
       fetchNotificationsData();
     } catch (err) {
-      setMessage({ type: 'danger', text: err.response?.data?.message || 'Dispatch failed.' });
+      setMessage({
+        type: 'danger',
+        text: err.response?.data?.message || 'Dispatch failed.',
+      });
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+      <div style={{ padding: '4rem', textAlign: 'center', color: '#64748b' }}>
+        Loading notification engine...
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-950 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold uppercase tracking-wider mb-2 border border-blue-500/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              Multi-Channel Asynchronous Notification Engine
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">Email, SMS & In-App Event Notifications</h1>
-            <p className="text-slate-300 text-sm mt-1 max-w-2xl">
-              Manage dynamic templates with variable interpolation (`{{candidate_name}}`), trigger event bindings, and track delivery status (`queued`, `sent`, `failed`).
-            </p>
+      <section
+        style={{
+          background: 'linear-gradient(135deg, #102a35, #193b46)',
+          borderRadius: '12px',
+          padding: '2rem',
+          color: '#ffffff',
+          marginBottom: '2rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1.5rem',
+          flexWrap: 'wrap',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+        }}
+      >
+        <div style={{ maxWidth: '800px' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#38bdf8',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              marginBottom: '0.5rem',
+            }}
+          >
+            <Bell size={16} />
+            Multi-Channel Asynchronous Notification Engine
+          </div>
+
+          <h1
+            style={{
+              fontSize: '1.85rem',
+              fontWeight: 800,
+              margin: '0 0 0.5rem',
+              color: '#ffffff',
+            }}
+          >
+            Email, SMS & In-App Event Notifications
+          </h1>
+
+          <p style={{ margin: 0, color: '#a9c0c6', fontSize: '0.95rem', lineHeight: 1.6 }}>
+            Manage dynamic templates with variable interpolation (&apos;&#123;&#123;candidate_name&#125;&#125;&apos;),
+            trigger event bindings, and track delivery status across queued, sent, and failed states.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowDispatchModal(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem 1.25rem',
+            background: '#2563eb',
+            color: '#ffffff',
+            border: 0,
+            borderRadius: '10px',
+            fontWeight: 700,
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
+          }}
+        >
+          <Send size={16} />
+          Dispatch Notification
+        </button>
+      </section>
+
+      {/* Alert Banner */}
+      {message.text && (
+        <div
+          style={{
+            padding: '1rem 1.25rem',
+            borderRadius: '10px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+            color: message.type === 'success' ? '#166534' : '#991b1b',
+            border: `1px solid ${message.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+            fontSize: '0.9rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+            <span>{message.text}</span>
           </div>
           <button
-            onClick={() => setShowDispatchModal(false) || setShowDispatchModal(true)}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition shadow-lg shrink-0"
+            onClick={() => setMessage({ type: '', text: '' })}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700 }}
           >
-            + Dispatch Notification
+            ✕
           </button>
-        </div>
-      </div>
-
-      {/* Alert Notifications */}
-      {message.text && (
-        <div className={`p-4 rounded-xl text-sm font-medium flex items-center justify-between shadow-sm border ${
-          message.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-          message.type === 'danger' ? 'bg-rose-50 text-rose-800 border-rose-200' :
-          'bg-sky-50 text-sky-800 border-sky-200'
-        }`}>
-          <span>{message.text}</span>
-          <button onClick={() => setMessage({ type: '', text: '' })} className="hover:opacity-75">✕</button>
         </div>
       )}
 
-      {/* Notification Logs Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-        <h2 className="text-lg font-bold text-slate-900">Dispatched Notification Log History</h2>
+      {/* Notification Logs Card */}
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          overflow: 'hidden',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        }}
+      >
+        <div
+          style={{
+            padding: '1.25rem 1.5rem',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 700 }}>
+            Dispatched Notification Log History
+          </h2>
+          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+            Showing {notifications.length} events
+          </span>
+        </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+        <div style={{ overflowX: 'auto' }}>
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              textAlign: 'left',
+              fontSize: '0.875rem',
+            }}
+          >
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold">
-                <th className="p-3">Provider Ref</th>
-                <th className="p-3">Channel</th>
-                <th className="p-3">Template Code</th>
-                <th className="p-3">Subject / Body</th>
-                <th className="p-3">Dispatched At</th>
-                <th className="p-3 text-right">Status</th>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 700 }}>
+                <th style={{ padding: '0.85rem 1.25rem' }}>Provider Ref</th>
+                <th style={{ padding: '0.85rem 1.25rem' }}>Channel</th>
+                <th style={{ padding: '0.85rem 1.25rem' }}>Template Code</th>
+                <th style={{ padding: '0.85rem 1.25rem' }}>Subject / Payload</th>
+                <th style={{ padding: '0.85rem 1.25rem' }}>Dispatched At</th>
+                <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {notifications.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
-                    No notification logs found. Click "+ Dispatch Notification" to test multi-channel events.
+                  <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                    No notification logs found. Click &quot;Dispatch Notification&quot; to test multi-channel events.
                   </td>
                 </tr>
               ) : (
                 notifications.map((n) => (
-                  <tr key={n.id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-3 font-mono font-bold text-indigo-700">{n.provider_ref}</td>
-                    <td className="p-3">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-50 text-blue-800 border border-blue-200">
+                  <tr key={n.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '1rem 1.25rem', fontFamily: 'monospace', fontWeight: 700, color: '#2563eb' }}>
+                      {n.provider_ref}
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem' }}>
+                      <span
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          background: '#e0f2fe',
+                          color: '#0369a1',
+                        }}
+                      >
                         {n.channel}
                       </span>
                     </td>
-                    <td className="p-3 font-mono text-slate-700">{n.template_code}</td>
-                    <td className="p-3 max-w-xs truncate">
-                      <span className="font-semibold text-slate-900 block">{n.subject}</span>
-                      <span className="text-slate-400 text-[11px] font-mono">{JSON.stringify(n.payload_json?.variables || {})}</span>
+                    <td style={{ padding: '1rem 1.25rem', fontFamily: 'monospace', color: '#334155' }}>
+                      {n.template_code}
                     </td>
-                    <td className="p-3 text-slate-600">{new Date(n.sent_at || n.created_at).toLocaleString()}</td>
-                    <td className="p-3 text-right">
-                      <span className="px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <td style={{ padding: '1rem 1.25rem', maxWidth: '320px' }}>
+                      <strong style={{ color: '#0f172a', display: 'block' }}>{n.subject}</strong>
+                      <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontFamily: 'monospace' }}>
+                        {JSON.stringify(n.payload_json?.variables || {})}
+                      </span>
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem', color: '#64748b' }}>
+                      {new Date(n.sent_at || n.created_at).toLocaleString()}
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
+                      <span
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          background: n.status === 'sent' ? '#dcfce7' : '#fef3c7',
+                          color: n.status === 'sent' ? '#15803d' : '#92400e',
+                        }}
+                      >
                         {n.status}
                       </span>
                     </td>
@@ -153,20 +304,66 @@ export default function Notifications() {
 
       {/* DISPATCH MODAL */}
       {showDispatchModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="text-lg font-bold text-slate-900">Async Multi-Channel Dispatch</h3>
-              <button onClick={() => setShowDispatchModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '1.75rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingBottom: '1rem',
+                borderBottom: '1px solid #e2e8f0',
+                marginBottom: '1.25rem',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>
+                Async Multi-Channel Dispatch
+              </h3>
+              <button
+                onClick={() => setShowDispatchModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleDispatchNotification} className="space-y-4 text-xs">
+            <form onSubmit={handleDispatchNotification} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Channel *</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Channel *
+                </label>
                 <select
                   value={dispatchForm.channel}
                   onChange={(e) => setDispatchForm({ ...dispatchForm, channel: e.target.value })}
-                  className="w-full rounded-xl border-slate-200 text-xs p-2.5 border focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                  }}
                 >
                   <option value="email">Email (SMTP / SES)</option>
                   <option value="sms">SMS Gateway (Twilio Adapter)</option>
@@ -176,31 +373,85 @@ export default function Notifications() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Template Event Code *</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Template Event Code *
+                </label>
                 <input
                   type="text"
                   required
                   value={dispatchForm.template_code}
                   onChange={(e) => setDispatchForm({ ...dispatchForm, template_code: e.target.value })}
-                  className="w-full rounded-xl border-slate-200 text-xs p-2.5 border focus:ring-2 focus:ring-blue-500 font-mono"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    fontFamily: 'monospace',
+                    outline: 'none',
+                  }}
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Interpolation Variables (JSON)</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Interpolation Variables (JSON)
+                </label>
                 <textarea
                   rows={4}
                   value={dispatchForm.variables}
                   onChange={(e) => setDispatchForm({ ...dispatchForm, variables: e.target.value })}
-                  className="w-full rounded-xl border-slate-200 text-xs p-2.5 border font-mono focus:ring-2 focus:ring-blue-500 bg-slate-900 text-slate-100"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontFamily: 'monospace',
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                    outline: 'none',
+                  }}
                 />
               </div>
 
-              <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
-                <button type="button" onClick={() => setShowDispatchModal(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-semibold">
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '0.75rem',
+                  paddingTop: '1rem',
+                  borderTop: '1px solid #e2e8f0',
+                  marginTop: '0.5rem',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowDispatchModal(false)}
+                  style={{
+                    padding: '0.65rem 1rem',
+                    background: '#f1f5f9',
+                    color: '#475569',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
                   Cancel
                 </button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-500 shadow-sm">
+                <button
+                  type="submit"
+                  style={{
+                    padding: '0.65rem 1.25rem',
+                    background: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
                   Dispatch Event
                 </button>
               </div>

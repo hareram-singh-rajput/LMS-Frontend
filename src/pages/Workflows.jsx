@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import {
   GitMerge,
   CheckCircle2,
@@ -8,14 +7,10 @@ import {
   Layers,
   RefreshCw,
   Plus,
-  ShieldCheck,
   FileCheck,
-  AlertTriangle,
-  ArrowRight,
-  Filter
+  ArrowRight
 } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+import apiClient from '../api/client';
 
 export default function Workflows() {
   const [activeTab, setActiveTab] = useState('inbox');
@@ -39,11 +34,6 @@ export default function Workflows() {
     entity_type: 'org_approval'
   });
 
-  const getHeaders = () => {
-    const token = localStorage.getItem('token');
-    return { Authorization: `Bearer ${token}` };
-  };
-
   useEffect(() => {
     fetchData();
   }, [activeTab]);
@@ -52,11 +42,11 @@ export default function Workflows() {
     setLoading(true);
     try {
       if (activeTab === 'inbox') {
-        const res = await axios.get(`${API_BASE}/workflows/tasks`, { headers: getHeaders() });
-        setTasks(res.data.data || []);
+        const res = await apiClient.get('/workflows/tasks');
+        setTasks(res.data?.data || []);
       } else if (activeTab === 'definitions') {
-        const res = await axios.get(`${API_BASE}/workflows/definitions`, { headers: getHeaders() });
-        setDefinitions(res.data.data || []);
+        const res = await apiClient.get('/workflows/definitions');
+        setDefinitions(res.data?.data || []);
       }
     } catch (err) {
       console.error(err);
@@ -69,7 +59,7 @@ export default function Workflows() {
   const handleCreateDefinition = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/workflows/definitions`, newDef, { headers: getHeaders() });
+      await apiClient.post('/workflows/definitions', newDef);
       setMessage({ type: 'success', text: 'Workflow state machine definition created successfully!' });
       setShowDefModal(false);
       fetchData();
@@ -82,7 +72,7 @@ export default function Workflows() {
     e.preventDefault();
     if (!selectedTask) return;
     try {
-      await axios.put(`${API_BASE}/workflows/tasks/${selectedTask.id}`, decision, { headers: getHeaders() });
+      await apiClient.put(`/workflows/tasks/${selectedTask.id}`, decision);
       setMessage({ type: 'success', text: `Workflow task successfully ${decision.action}!` });
       setSelectedTask(null);
       fetchData();
@@ -92,212 +82,601 @@ export default function Workflows() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
-        <div className="flex items-center space-x-4">
-          <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-400 border border-purple-500/20 shadow-inner">
-            <GitMerge className="w-8 h-8" />
+    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Header Banner */}
+      <section
+        style={{
+          background: 'linear-gradient(135deg, #102a35, #193b46)',
+          borderRadius: '12px',
+          padding: '2rem',
+          color: '#ffffff',
+          marginBottom: '2rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1.5rem',
+          flexWrap: 'wrap',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+        }}
+      >
+        <div style={{ maxWidth: '800px' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#38bdf8',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              marginBottom: '0.5rem',
+            }}
+          >
+            <GitMerge size={16} />
+            Unified State Machine Engine
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Generic Workflow & Approval State Engine</h1>
-            <p className="text-slate-400 text-sm">Unified State Machine, Task Approval Inbox, SLA Tracking & Decision Audit</p>
-          </div>
+
+          <h1
+            style={{
+              fontSize: '1.85rem',
+              fontWeight: 800,
+              margin: '0 0 0.5rem',
+              color: '#ffffff',
+            }}
+          >
+            Workflow Inbox & Approvals
+          </h1>
+
+          <p style={{ margin: 0, color: '#a9c0c6', fontSize: '0.95rem', lineHeight: 1.6 }}>
+            Oversee multi-stage approval lifecycles, action pending task assignments, and review governance transition trails.
+          </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <button
             onClick={() => setShowDefModal(true)}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-medium shadow-lg hover:shadow-purple-500/20 transition-all text-sm"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.25rem',
+              background: '#2563eb',
+              color: '#ffffff',
+              border: 0,
+              borderRadius: '10px',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
+            }}
           >
-            <Plus className="w-4 h-4" />
-            <span>Define State Machine</span>
+            <Plus size={16} />
+            Define State Machine
           </button>
+
           <button
             onClick={fetchData}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700"
             title="Refresh Data"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '42px',
+              height: '42px',
+              background: '#ffffff15',
+              color: '#ffffff',
+              border: '1px solid #ffffff25',
+              borderRadius: '10px',
+              cursor: 'pointer',
+            }}
           >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* Notification Toast */}
+      {/* Message Banner */}
       {message && (
         <div
-          className={`p-4 rounded-xl flex items-center justify-between border ${
-            message.type === 'success'
-              ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
-          }`}
+          style={{
+            padding: '1rem 1.25rem',
+            borderRadius: '10px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+            color: message.type === 'success' ? '#166534' : '#991b1b',
+            border: `1px solid ${message.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+            fontSize: '0.9rem',
+          }}
         >
-          <span className="text-sm font-medium">{message.text}</span>
-          <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-white text-sm font-bold">
+          <span>{message.text}</span>
+          <button
+            onClick={() => setMessage(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700 }}
+          >
             ✕
           </button>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-800 gap-2">
+      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
         <button
           onClick={() => setActiveTab('inbox')}
-          className={`flex items-center space-x-2 px-5 py-3 font-semibold text-sm rounded-t-xl transition-all border-b-2 ${
-            activeTab === 'inbox'
-              ? 'border-purple-500 text-purple-400 bg-slate-900/50'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem 1.25rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'inbox' ? '3px solid #2563eb' : '3px solid transparent',
+            color: activeTab === 'inbox' ? '#2563eb' : '#64748b',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            cursor: 'pointer',
+          }}
         >
-          <FileCheck className="w-4 h-4" />
-          <span>Approval Task Inbox ({tasks.length})</span>
+          <FileCheck size={18} />
+          Approval Task Inbox ({tasks.length})
         </button>
+
         <button
           onClick={() => setActiveTab('definitions')}
-          className={`flex items-center space-x-2 px-5 py-3 font-semibold text-sm rounded-t-xl transition-all border-b-2 ${
-            activeTab === 'definitions'
-              ? 'border-purple-500 text-purple-400 bg-slate-900/50'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem 1.25rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'definitions' ? '3px solid #2563eb' : '3px solid transparent',
+            color: activeTab === 'definitions' ? '#2563eb' : '#64748b',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            cursor: 'pointer',
+          }}
         >
-          <Layers className="w-4 h-4" />
-          <span>Configured State Machines</span>
+          <Layers size={18} />
+          Configured State Machines ({definitions.length})
         </button>
       </div>
 
-      {/* Tab 1: Approval Task Inbox */}
+      {/* TAB 1: Task Inbox */}
       {activeTab === 'inbox' && (
-        <div className="bg-slate-900/60 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-950/80 text-xs uppercase text-slate-400 tracking-wider border-b border-slate-800">
-                <tr>
-                  <th className="p-4">Task ID & Action</th>
-                  <th className="p-4">Entity Type</th>
-                  <th className="p-4">Current State</th>
-                  <th className="p-4">Task Status</th>
-                  <th className="p-4">Decision Reason</th>
-                  <th className="p-4 text-right">Actions</th>
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            overflow: 'hidden',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+        >
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 700 }}>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Action Code / Task ID</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Entity Type</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Current State</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Task Status</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Decision Reason</th>
+                  <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {tasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-slate-800/30">
-                    <td className="p-4 font-medium text-white">
-                      <div>{task.action_code || 'REVIEW_APPROVAL'}</div>
-                      <span className="text-xs font-mono text-purple-400">{task.id.slice(0, 8)}...</span>
-                    </td>
-                    <td className="p-4 font-mono text-xs uppercase text-cyan-400">
-                      {task.instance ? task.instance.entity_type : 'GENERAL'}
-                    </td>
-                    <td className="p-4">
-                      <span className="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-md text-xs font-semibold uppercase">
-                        {task.instance ? task.instance.current_state : 'SUBMITTED'}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-                          task.state === 'approved'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : task.state === 'rejected'
-                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}
-                      >
-                        {task.state === 'approved' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                        {task.state === 'rejected' && <XCircle className="w-3.5 h-3.5" />}
-                        {task.state === 'pending' && <Clock className="w-3.5 h-3.5" />}
-                        <span>{task.state}</span>
-                      </span>
-                    </td>
-                    <td className="p-4 text-xs text-slate-400 max-w-xs truncate">
-                      {task.decision_reason || 'Pending reviewer decision'}
-                    </td>
-                    <td className="p-4 text-right">
-                      {task.state === 'pending' ? (
-                        <button
-                          onClick={() => {
-                            setSelectedTask(task);
-                            setDecision({ action: 'approved', decision_reason: '' });
-                          }}
-                          className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-medium shadow-md transition-all"
-                        >
-                          Review & Decide
-                        </button>
-                      ) : (
-                        <span className="text-xs text-slate-500 italic">Completed</span>
-                      )}
+              <tbody>
+                {tasks.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                      No pending workflow tasks found in your approval queue.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  tasks.map((task) => (
+                    <tr key={task.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '1rem 1.25rem' }}>
+                        <strong style={{ color: '#0f172a', display: 'block' }}>{task.action_code || 'REVIEW_APPROVAL'}</strong>
+                        <span style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: '#2563eb' }}>
+                          {task.id ? `${task.id.slice(0, 8)}...` : 'N/A'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', fontFamily: 'monospace', fontSize: '0.8rem', color: '#0284c7' }}>
+                        {task.instance?.entity_type || 'GENERAL'}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem' }}>
+                        <span
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            background: '#f1f5f9',
+                            color: '#475569',
+                          }}
+                        >
+                          {task.instance?.current_state || 'SUBMITTED'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            background:
+                              task.state === 'approved'
+                                ? '#dcfce7'
+                                : task.state === 'rejected'
+                                ? '#fee2e2'
+                                : '#fef3c7',
+                            color:
+                              task.state === 'approved'
+                                ? '#15803d'
+                                : task.state === 'rejected'
+                                ? '#b91c1c'
+                                : '#b45309',
+                          }}
+                        >
+                          {task.state === 'approved' && <CheckCircle2 size={12} />}
+                          {task.state === 'rejected' && <XCircle size={12} />}
+                          {task.state === 'pending' && <Clock size={12} />}
+                          <span>{task.state}</span>
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', color: '#64748b', maxWidth: '280px' }}>
+                        {task.decision_reason || 'Pending reviewer decision'}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
+                        {task.state === 'pending' ? (
+                          <button
+                            onClick={() => {
+                              setSelectedTask(task);
+                              setDecision({ action: 'approved', decision_reason: '' });
+                            }}
+                            style={{
+                              padding: '0.5rem 0.85rem',
+                              background: '#2563eb',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Review & Decide
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Processed</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
-
-            {tasks.length === 0 && !loading && (
-              <div className="p-12 text-center text-slate-400">No pending workflow approval tasks in inbox.</div>
-            )}
           </div>
         </div>
       )}
 
-      {/* Tab 2: Workflow Definitions */}
+      {/* TAB 2: Definitions */}
       {activeTab === 'definitions' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {definitions.map((def) => (
-            <div key={def.id} className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 shadow-xl space-y-3">
-              <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-500/10 text-purple-400 uppercase tracking-wide border border-purple-500/20">
-                {def.entity_type}
-              </span>
-              <h3 className="text-lg font-bold text-white mt-2">{def.name}</h3>
-              <p className="text-xs font-mono text-slate-400">{def.code} (v{def.version_no})</p>
-
-              <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 flex justify-between">
-                <span>Active Instances:</span>
-                <span className="text-purple-400 font-bold">{def.instances_count || 0}</span>
-              </div>
-            </div>
-          ))}
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            overflow: 'hidden',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+        >
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 700 }}>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Workflow Code</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Workflow Title</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Target Entity</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Version</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {definitions.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                      No custom state machines registered. Click &quot;Define State Machine&quot; to add one.
+                    </td>
+                  </tr>
+                ) : (
+                  definitions.map((def) => (
+                    <tr key={def.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '1rem 1.25rem', fontFamily: 'monospace', fontWeight: 700, color: '#2563eb' }}>
+                        {def.code}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', color: '#0f172a', fontWeight: 600 }}>
+                        {def.name}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', color: '#0284c7', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                        {def.entity_type}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', color: '#64748b' }}>
+                        v{def.version || '1.0'}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem' }}>
+                        <span
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            background: '#dcfce7',
+                            color: '#15803d',
+                          }}
+                        >
+                          {def.status || 'Active'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* Modal: Process Decision Task */}
+      {/* DECISION MODAL */}
       {selectedTask && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
-            <h3 className="text-xl font-bold text-white">Workflow Approval Decision</h3>
-            <form onSubmit={handleProcessTask} className="space-y-4">
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '1.75rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingBottom: '1rem',
+                borderBottom: '1px solid #e2e8f0',
+                marginBottom: '1.25rem',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>
+                Process Workflow Decision
+              </h3>
+              <button
+                onClick={() => setSelectedTask(null)}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleProcessTask} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Select Action</label>
-                <select
-                  value={decision.action}
-                  onChange={(e) => setDecision({ ...decision, action: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500"
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Decision Outcome *
+                </label>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setDecision({ ...decision, action: 'approved' })}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      border: decision.action === 'approved' ? '2px solid #16a34a' : '1px solid #cbd5e1',
+                      background: decision.action === 'approved' ? '#f0fdf4' : '#ffffff',
+                      color: decision.action === 'approved' ? '#166534' : '#475569',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✓ Approve Task
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDecision({ ...decision, action: 'rejected' })}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      border: decision.action === 'rejected' ? '2px solid #dc2626' : '1px solid #cbd5e1',
+                      background: decision.action === 'rejected' ? '#fef2f2' : '#ffffff',
+                      color: decision.action === 'rejected' ? '#991b1b' : '#475569',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✕ Reject Task
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Reason / Governance Notes *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Enter audit rationale for this decision..."
+                  value={decision.decision_reason}
+                  onChange={(e) => setDecision({ ...decision, decision_reason: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTask(null)}
+                  style={{ padding: '0.65rem 1rem', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
                 >
-                  <option value="approved">Approve & Advance Workflow</option>
-                  <option value="rejected">Reject Entity Application</option>
-                  <option value="returned">Return for Correction</option>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '0.65rem 1.25rem',
+                    background: decision.action === 'approved' ? '#16a34a' : '#dc2626',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Confirm Decision
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DEFINITION MODAL */}
+      {showDefModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '1.75rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingBottom: '1rem',
+                borderBottom: '1px solid #e2e8f0',
+                marginBottom: '1.25rem',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>
+                Define State Machine Workflow
+              </h3>
+              <button
+                onClick={() => setShowDefModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateDefinition} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Workflow Code *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newDef.code}
+                  onChange={(e) => setNewDef({ ...newDef, code: e.target.value })}
+                  style={{ width: '100%', padding: '0.65rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', fontFamily: 'monospace', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Workflow Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newDef.name}
+                  onChange={(e) => setNewDef({ ...newDef, name: e.target.value })}
+                  style={{ width: '100%', padding: '0.65rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Entity Type *
+                </label>
+                <select
+                  value={newDef.entity_type}
+                  onChange={(e) => setNewDef({ ...newDef, entity_type: e.target.value })}
+                  style={{ width: '100%', padding: '0.65rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                >
+                  <option value="org_approval">Organisation Accreditation</option>
+                  <option value="assessment_certification">Assessment Certification</option>
+                  <option value="candidate_enrolment">Candidate Enrolment Exception</option>
+                  <option value="general_approval">General Administrative Approval</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Decision Justification / Reason</label>
-                <textarea
-                  required
-                  rows="3"
-                  placeholder="Provide explicit compliance rationale for audit logging..."
-                  value={decision.decision_reason}
-                  onChange={(e) => setDecision({ ...decision, decision_reason: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-purple-500"
-                ></textarea>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4 border-t border-slate-800">
-                <button type="button" onClick={() => setSelectedTask(null)} className="px-4 py-2 text-slate-400 text-sm">
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowDefModal(false)}
+                  style={{ padding: '0.65rem 1rem', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                >
                   Cancel
                 </button>
-                <button type="submit" className="px-5 py-2 bg-purple-600 text-white rounded-xl text-sm font-medium">
-                  Submit Decision
+                <button
+                  type="submit"
+                  style={{ padding: '0.65rem 1.25rem', background: '#2563eb', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Save Definition
                 </button>
               </div>
             </form>

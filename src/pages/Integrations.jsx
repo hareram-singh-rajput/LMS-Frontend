@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import {
   Cpu,
   RefreshCw,
@@ -8,14 +7,12 @@ import {
   AlertTriangle,
   XCircle,
   Clock,
-  ShieldCheck,
   Server,
   Activity,
   Layers,
-  FileText
+  RotateCcw
 } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+import apiClient from '../api/client';
 
 export default function Integrations() {
   const [activeTab, setActiveTab] = useState('configs');
@@ -30,13 +27,8 @@ export default function Integrations() {
     code: '',
     provider_type: 'digilocker',
     base_url: 'https://api.digilocker.gov.in/v1',
-    auth_type: 'oauth2'
+    auth_type: 'oauth2',
   });
-
-  const getHeaders = () => {
-    const token = localStorage.getItem('token');
-    return { Authorization: `Bearer ${token}` };
-  };
 
   useEffect(() => {
     fetchData();
@@ -46,14 +38,15 @@ export default function Integrations() {
     setLoading(true);
     try {
       if (activeTab === 'configs') {
-        const res = await axios.get(`${API_BASE}/integrations/configs`, { headers: getHeaders() });
-        setConfigs(res.data.data || []);
+        const res = await apiClient.get('/integrations/configs');
+        setConfigs(res.data?.data || []);
       } else if (activeTab === 'events') {
-        const res = await axios.get(`${API_BASE}/integrations/events`, { headers: getHeaders() });
-        setEvents(res.data.data?.data || res.data.data || []);
+        const res = await apiClient.get('/integrations/events');
+        setEvents(res.data?.data?.data || res.data?.data || []);
       } else if (activeTab === 'dlq') {
-        const res = await axios.get(`${API_BASE}/integrations/dlq`, { headers: getHeaders() });
-        setDlqEvents(res.data.data || []);
+        // Backend endpoint is /integrations/dead-letter
+        const res = await apiClient.get('/integrations/dead-letter');
+        setDlqEvents(res.data?.data || []);
       }
     } catch (err) {
       console.error(err);
@@ -66,20 +59,26 @@ export default function Integrations() {
   const handleCreateConfig = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/integrations/configs`, newConfig, { headers: getHeaders() });
-      setMessage({ type: 'success', text: 'Integration config registered successfully!' });
+      await apiClient.post('/integrations/configs', newConfig);
+      setMessage({ type: 'success', text: 'Integration adapter registered successfully!' });
       setShowConfigModal(false);
-      setNewConfig({ code: '', provider_type: 'digilocker', base_url: 'https://api.digilocker.gov.in/v1', auth_type: 'oauth2' });
+      setNewConfig({
+        code: '',
+        provider_type: 'digilocker',
+        base_url: 'https://api.digilocker.gov.in/v1',
+        auth_type: 'oauth2',
+      });
       fetchData();
     } catch (err) {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to create config' });
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to create adapter config' });
     }
   };
 
   const handleRetryDlq = async (eventId) => {
     try {
-      const res = await axios.post(`${API_BASE}/integrations/dlq/${eventId}/retry`, {}, { headers: getHeaders() });
-      setMessage({ type: 'success', text: res.data.message || 'Event re-processed successfully!' });
+      // Backend endpoint is /integrations/events/{id}/retry
+      const res = await apiClient.post(`/integrations/events/${eventId}/retry`);
+      setMessage({ type: 'success', text: res.data?.message || 'Event re-processed successfully!' });
       fetchData();
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to retry event' });
@@ -87,334 +86,560 @@ export default function Integrations() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
-        <div className="flex items-center space-x-3">
-          <div className="p-3 bg-cyan-500/10 rounded-xl text-cyan-400 border border-cyan-500/20">
-            <Cpu className="w-7 h-7" />
+    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Header Banner */}
+      <section
+        style={{
+          background: 'linear-gradient(135deg, #102a35, #193b46)',
+          borderRadius: '12px',
+          padding: '2rem',
+          color: '#ffffff',
+          marginBottom: '2rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1.5rem',
+          flexWrap: 'wrap',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+        }}
+      >
+        <div style={{ maxWidth: '800px' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#38bdf8',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              marginBottom: '0.5rem',
+            }}
+          >
+            <Cpu size={16} />
+            External Integration Mesh & Gateways
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">External Integration Mesh</h1>
-            <p className="text-slate-400 text-sm">DigiLocker, Aadhaar KYC, Payment Gateways & Dead-Letter Queue Monitoring</p>
-          </div>
+
+          <h1
+            style={{
+              fontSize: '1.85rem',
+              fontWeight: 800,
+              margin: '0 0 0.5rem',
+              color: '#ffffff',
+            }}
+          >
+            External Integrations & Dead-Letter Queue
+          </h1>
+
+          <p style={{ margin: 0, color: '#a9c0c6', fontSize: '0.95rem', lineHeight: 1.6 }}>
+            DigiLocker credential issuers, Aadhaar identity verification, payment gateways, and resilient dead-letter event monitoring.
+          </p>
         </div>
-        <div className="flex items-center space-x-3">
+
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <button
             onClick={() => setShowConfigModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all text-sm"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.25rem',
+              background: '#2563eb',
+              color: '#ffffff',
+              border: 0,
+              borderRadius: '10px',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
+            }}
           >
-            <Plus className="w-4 h-4" />
-            <span>Add Integration Adapter</span>
+            <Plus size={16} />
+            Add Integration Adapter
           </button>
+
           <button
             onClick={fetchData}
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700"
             title="Refresh"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '42px',
+              height: '42px',
+              background: '#ffffff15',
+              color: '#ffffff',
+              border: '1px solid #ffffff25',
+              borderRadius: '10px',
+              cursor: 'pointer',
+            }}
           >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* Notification Toast */}
+      {/* Message Banner */}
       {message && (
         <div
-          className={`p-4 rounded-xl flex items-center justify-between border ${
-            message.type === 'success'
-              ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
-          }`}
+          style={{
+            padding: '1rem 1.25rem',
+            borderRadius: '10px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+            color: message.type === 'success' ? '#166534' : '#991b1b',
+            border: `1px solid ${message.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+            fontSize: '0.9rem',
+          }}
         >
-          <span className="text-sm font-medium">{message.text}</span>
-          <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-white text-sm font-bold">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+            <span>{message.text}</span>
+          </div>
+          <button
+            onClick={() => setMessage(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700 }}
+          >
             ✕
           </button>
         </div>
       )}
 
-      {/* Stats Quick Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 shadow-md flex items-center justify-between">
+      {/* Stats Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+        <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p className="text-xs uppercase font-semibold text-slate-400 tracking-wider">Active Adapters</p>
-            <p className="text-2xl font-extrabold text-cyan-400 mt-1">{configs.length}</p>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Active Adapters</span>
+            <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#0284c7', margin: '0.25rem 0' }}>{configs.length}</div>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>External Connectors</span>
           </div>
-          <Server className="w-8 h-8 text-cyan-500/30" />
+          <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#e0f2fe', display: 'grid', placeItems: 'center', color: '#0284c7' }}>
+            <Server size={22} />
+          </div>
         </div>
-        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 shadow-md flex items-center justify-between">
+
+        <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p className="text-xs uppercase font-semibold text-slate-400 tracking-wider">Total Integration Events</p>
-            <p className="text-2xl font-extrabold text-blue-400 mt-1">{events.length}</p>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Integration Events</span>
+            <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#2563eb', margin: '0.25rem 0' }}>{events.length}</div>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Outbound / Inbound Logs</span>
           </div>
-          <Activity className="w-8 h-8 text-blue-500/30" />
+          <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#eff6ff', display: 'grid', placeItems: 'center', color: '#2563eb' }}>
+            <Activity size={22} />
+          </div>
         </div>
-        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 shadow-md flex items-center justify-between">
+
+        <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p className="text-xs uppercase font-semibold text-slate-400 tracking-wider">Dead-Letter Queue (DLQ)</p>
-            <p className="text-2xl font-extrabold text-amber-400 mt-1">{dlqEvents.length}</p>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Dead-Letter Queue (DLQ)</span>
+            <div style={{ fontSize: '1.85rem', fontWeight: 800, color: dlqEvents.length > 0 ? '#b91c1c' : '#16a34a', margin: '0.25rem 0' }}>
+              {dlqEvents.length}
+            </div>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Failed Exhausted Events</span>
           </div>
-          <AlertTriangle className="w-8 h-8 text-amber-500/30" />
+          <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: dlqEvents.length > 0 ? '#fee2e2' : '#dcfce7', display: 'grid', placeItems: 'center', color: dlqEvents.length > 0 ? '#b91c1c' : '#16a34a' }}>
+            <AlertTriangle size={22} />
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-800 gap-2">
+      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
         <button
           onClick={() => setActiveTab('configs')}
-          className={`flex items-center space-x-2 px-5 py-3 font-semibold text-sm rounded-t-xl transition-all border-b-2 ${
-            activeTab === 'configs'
-              ? 'border-cyan-500 text-cyan-400 bg-slate-900/50'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem 1.25rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'configs' ? '3px solid #2563eb' : '3px solid transparent',
+            color: activeTab === 'configs' ? '#2563eb' : '#64748b',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            cursor: 'pointer',
+          }}
         >
-          <Layers className="w-4 h-4" />
-          <span>Configured Adapters</span>
+          <Layers size={18} />
+          Configured Adapters ({configs.length})
         </button>
+
         <button
           onClick={() => setActiveTab('events')}
-          className={`flex items-center space-x-2 px-5 py-3 font-semibold text-sm rounded-t-xl transition-all border-b-2 ${
-            activeTab === 'events'
-              ? 'border-cyan-500 text-cyan-400 bg-slate-900/50'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem 1.25rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'events' ? '3px solid #2563eb' : '3px solid transparent',
+            color: activeTab === 'events' ? '#2563eb' : '#64748b',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            cursor: 'pointer',
+          }}
         >
-          <FileText className="w-4 h-4" />
-          <span>Audit Log Events</span>
+          <Activity size={18} />
+          Event Stream ({events.length})
         </button>
+
         <button
           onClick={() => setActiveTab('dlq')}
-          className={`flex items-center space-x-2 px-5 py-3 font-semibold text-sm rounded-t-xl transition-all border-b-2 ${
-            activeTab === 'dlq'
-              ? 'border-cyan-500 text-cyan-400 bg-slate-900/50'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem 1.25rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'dlq' ? '3px solid #2563eb' : '3px solid transparent',
+            color: activeTab === 'dlq' ? '#2563eb' : '#64748b',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            cursor: 'pointer',
+          }}
         >
-          <AlertTriangle className="w-4 h-4" />
-          <span>Dead-Letter Queue ({dlqEvents.length})</span>
+          <AlertTriangle size={18} />
+          Dead-Letter Queue ({dlqEvents.length})
         </button>
       </div>
 
-      {/* Tab 1: Configs */}
+      {/* TAB 1: Configured Adapters */}
       {activeTab === 'configs' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {configs.map((cfg) => (
-            <div
-              key={cfg.id}
-              className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4 hover:border-slate-700 transition-all flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-cyan-500/10 text-cyan-400 uppercase tracking-wide border border-cyan-500/20">
-                    {cfg.provider_type}
-                  </span>
-                  <span
-                    className={`inline-flex items-center space-x-1 px-2 py-0.5 text-xs font-semibold rounded-md ${
-                      cfg.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>{cfg.status}</span>
-                  </span>
-                </div>
-
-                <h3 className="text-lg font-bold text-white mt-3">{cfg.code}</h3>
-                <p className="text-xs text-slate-400 font-mono mt-1 truncate" title={cfg.base_url}>
-                  {cfg.base_url}
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-slate-500 block">Auth Mechanism</span>
-                  <span className="text-slate-300 font-medium uppercase">{cfg.auth_type}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Secret Reference</span>
-                  <span className="text-slate-300 font-mono truncate block" title={cfg.secret_ref}>
-                    {cfg.secret_ref}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {configs.length === 0 && !loading && (
-            <div className="col-span-full p-12 text-center text-slate-400 bg-slate-900/40 rounded-2xl border border-slate-800">
-              No integration adapters configured yet. Click "Add Integration Adapter" to configure one.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab 2: Integration Events */}
-      {activeTab === 'events' && (
-        <div className="bg-slate-900/60 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-950/80 text-xs uppercase text-slate-400 tracking-wider border-b border-slate-800">
-                <tr>
-                  <th className="p-4">Correlation ID</th>
-                  <th className="p-4">Adapter / Action</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Attempts</th>
-                  <th className="p-4">Duration</th>
-                  <th className="p-4">Timestamp</th>
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            overflow: 'hidden',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+        >
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 700 }}>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Adapter Code</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Provider Type</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Base Endpoint URL</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Auth Protocol</th>
+                  <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {events.map((evt) => (
-                  <tr key={evt.id} className="hover:bg-slate-800/30">
-                    <td className="p-4 font-mono text-xs text-cyan-400 font-semibold">{evt.correlation_id}</td>
-                    <td className="p-4 font-medium text-white">{evt.action_name}</td>
-                    <td className="p-4">
-                      <span
-                        className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          evt.status === 'success'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : evt.status === 'dead_letter' || evt.status === 'failed'
-                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}
-                      >
-                        {evt.status === 'success' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                        {evt.status !== 'success' && <XCircle className="w-3.5 h-3.5" />}
-                        <span>{evt.status}</span>
-                      </span>
+              <tbody>
+                {configs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                      No integration adapters configured. Click &quot;Add Integration Adapter&quot; to register one.
                     </td>
-                    <td className="p-4 font-mono text-xs text-slate-300">{evt.attempt_count}</td>
-                    <td className="p-4 text-xs text-slate-400">{evt.duration_ms ? `${evt.duration_ms} ms` : 'N/A'}</td>
-                    <td className="p-4 text-xs text-slate-400">{new Date(evt.created_at).toLocaleString()}</td>
                   </tr>
-                ))}
+                ) : (
+                  configs.map((c) => (
+                    <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '1rem 1.25rem', fontFamily: 'monospace', fontWeight: 700, color: '#2563eb' }}>
+                        {c.code}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem' }}>
+                        <span style={{ padding: '3px 8px', background: '#e0f2fe', color: '#0369a1', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                          {c.provider_type}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', fontFamily: 'monospace', fontSize: '0.8rem', color: '#64748b' }}>
+                        {c.base_url}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', color: '#475569', fontWeight: 600 }}>
+                        {c.auth_type?.toUpperCase() || 'OAUTH2'}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
+                        <span style={{ padding: '3px 8px', background: '#dcfce7', color: '#15803d', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                          {c.status || 'Active'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Tab 3: Dead Letter Queue */}
-      {activeTab === 'dlq' && (
-        <div className="space-y-4">
-          {dlqEvents.map((evt) => (
-            <div
-              key={evt.id}
-              className="bg-slate-900/60 p-5 rounded-2xl border border-rose-900/30 shadow-xl space-y-4 hover:border-rose-700/50 transition-all"
-            >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2.5 bg-rose-500/10 rounded-xl text-rose-400 border border-rose-500/20">
-                    <AlertTriangle className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-white text-base">{evt.action_name}</h4>
-                    <p className="text-xs text-slate-400 font-mono">Correlation: {evt.correlation_id}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                  <span className="px-3 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-mono">
-                    Attempts: {evt.attempt_count}
-                  </span>
-                  <button
-                    onClick={() => handleRetryDlq(evt.id)}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-xl font-medium shadow-md text-xs transition-all"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Re-process & Retry</span>
-                  </button>
-                </div>
-              </div>
-
-              {evt.error_message && (
-                <div className="p-3 bg-rose-950/30 rounded-xl border border-rose-900/40 text-xs text-rose-300 font-mono">
-                  <span className="font-bold uppercase text-rose-400 block mb-1">Error [{evt.error_code || 'UNKNOWN'}]:</span>
-                  {evt.error_message}
-                </div>
-              )}
-            </div>
-          ))}
-
-          {dlqEvents.length === 0 && !loading && (
-            <div className="p-12 text-center bg-slate-900/40 rounded-2xl border border-slate-800 text-slate-400">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500/40 mx-auto mb-3" />
-              <p className="font-semibold text-white">Dead-Letter Queue is empty</p>
-              <p className="text-xs text-slate-500 mt-1">All integration events processed successfully or retried.</p>
-            </div>
-          )}
+      {/* TAB 2: Event Stream */}
+      {activeTab === 'events' && (
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            overflow: 'hidden',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+        >
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 700 }}>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Event ID</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Adapter</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Direction</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Endpoint / Status Code</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Timestamp</th>
+                  <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                      No integration event records captured yet.
+                    </td>
+                  </tr>
+                ) : (
+                  events.map((ev) => (
+                    <tr key={ev.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '1rem 1.25rem', fontFamily: 'monospace', fontWeight: 700, color: '#2563eb' }}>
+                        {ev.id ? `${ev.id.slice(0, 8)}...` : 'EVENT'}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', fontWeight: 600, color: '#0f172a' }}>
+                        {ev.config?.code || 'ADAPTER'}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem' }}>
+                        <span style={{ padding: '3px 8px', background: '#f1f5f9', color: '#475569', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                          {ev.direction || 'OUTBOUND'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', fontFamily: 'monospace', fontSize: '0.8rem', color: '#64748b' }}>
+                        {ev.endpoint || '/v1/event'} ({ev.response_status_code || 200})
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', color: '#64748b' }}>
+                        {new Date(ev.created_at).toLocaleString()}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
+                        <span
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            background: ev.status === 'success' ? '#dcfce7' : '#fee2e2',
+                            color: ev.status === 'success' ? '#15803d' : '#b91c1c',
+                          }}
+                        >
+                          {ev.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* Modal: New Config */}
+      {/* TAB 3: Dead-Letter Queue */}
+      {activeTab === 'dlq' && (
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            overflow: 'hidden',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+        >
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 700 }}>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>DLQ Event ID</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Adapter</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Retry Count</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Error Reason</th>
+                  <th style={{ padding: '0.85rem 1.25rem' }}>Exhausted At</th>
+                  <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dlqEvents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#16a34a' }}>
+                      ✓ Dead-Letter Queue is empty. No failed integration deliveries!
+                    </td>
+                  </tr>
+                ) : (
+                  dlqEvents.map((dlq) => (
+                    <tr key={dlq.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '1rem 1.25rem', fontFamily: 'monospace', fontWeight: 700, color: '#b91c1c' }}>
+                        {dlq.id ? `${dlq.id.slice(0, 8)}...` : 'DLQ'}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', fontWeight: 600, color: '#0f172a' }}>
+                        {dlq.config?.code || 'ADAPTER'}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', fontFamily: 'monospace', color: '#b45309' }}>
+                        {dlq.retry_count || 3} attempts
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', color: '#b91c1c', maxWidth: '300px' }}>
+                        {dlq.error_message || 'HTTP timeout / external gateway 503'}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', color: '#64748b' }}>
+                        {new Date(dlq.updated_at || dlq.created_at).toLocaleString()}
+                      </td>
+                      <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
+                        <button
+                          onClick={() => handleRetryDlq(dlq.id)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            padding: '0.45rem 0.85rem',
+                            background: '#eff6ff',
+                            color: '#2563eb',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <RotateCcw size={14} />
+                          <span>Retry Event</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIG MODAL */}
       {showConfigModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
-            <h3 className="text-xl font-bold text-white">Register Integration Adapter</h3>
-            <form onSubmit={handleCreateConfig} className="space-y-4">
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '1.75rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingBottom: '1rem',
+                borderBottom: '1px solid #e2e8f0',
+                marginBottom: '1.25rem',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>
+                Register Integration Adapter
+              </h3>
+              <button
+                onClick={() => setShowConfigModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateConfig} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Adapter Code</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Adapter Unique Code *
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. DIGILOCKER_SANDBOX"
+                  placeholder="e.g. DIGILOCKER_NATIONAL"
                   value={newConfig.code}
                   onChange={(e) => setNewConfig({ ...newConfig, code: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-cyan-500"
+                  style={{ width: '100%', padding: '0.65rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', fontFamily: 'monospace', boxSizing: 'border-box' }}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Provider Type</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Provider Type *
+                </label>
                 <select
                   value={newConfig.provider_type}
                   onChange={(e) => setNewConfig({ ...newConfig, provider_type: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-cyan-500"
+                  style={{ width: '100%', padding: '0.65rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
                 >
-                  <option value="digilocker">DigiLocker</option>
-                  <option value="aadhaar_kyc">Aadhaar KYC</option>
-                  <option value="sms_gateway">SMS Gateway</option>
-                  <option value="payment_gateway">Payment Gateway</option>
-                  <option value="government_portal">Government Portal</option>
+                  <option value="digilocker">DigiLocker Credential Gateway</option>
+                  <option value="aadhaar_kyc">UIDAI Aadhaar KYC Gateway</option>
+                  <option value="payment_gateway">Razorpay / Cashfree Merchant</option>
+                  <option value="sms_gateway">Twilio SMS Adapter</option>
+                  <option value="webhook_outbound">Generic Enterprise Webhook</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Base Endpoint URL</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Base Endpoint URL *
+                </label>
                 <input
                   type="url"
                   required
-                  placeholder="https://api.gateway.org/v1"
                   value={newConfig.base_url}
                   onChange={(e) => setNewConfig({ ...newConfig, base_url: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-cyan-500"
+                  style={{ width: '100%', padding: '0.65rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', fontFamily: 'monospace', boxSizing: 'border-box' }}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Authentication Type</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                  Authentication Protocol *
+                </label>
                 <select
                   value={newConfig.auth_type}
                   onChange={(e) => setNewConfig({ ...newConfig, auth_type: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-cyan-500"
+                  style={{ width: '100%', padding: '0.65rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
                 >
-                  <option value="oauth2">OAuth 2.0</option>
-                  <option value="bearer">Bearer Token</option>
-                  <option value="api_key">API Key</option>
-                  <option value="basic">Basic Auth</option>
+                  <option value="oauth2">OAuth 2.0 (Bearer Token)</option>
+                  <option value="api_key">API Key (X-Api-Key Header)</option>
+                  <option value="basic">HTTP Basic Authentication</option>
+                  <option value="hmac">HMAC SHA-256 Signature</option>
                 </select>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t border-slate-800">
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
                 <button
                   type="button"
                   onClick={() => setShowConfigModal(false)}
-                  className="px-4 py-2 text-slate-400 hover:text-white text-sm font-medium"
+                  style={{ padding: '0.65rem 1rem', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-sm font-medium shadow-lg shadow-cyan-600/20"
+                  style={{ padding: '0.65rem 1.25rem', background: '#2563eb', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
                 >
                   Register Adapter
                 </button>

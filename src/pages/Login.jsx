@@ -424,7 +424,7 @@ export default function Login() {
             <div style={{ color: C.green, fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase' }}>
               Phase 3 Integrated Governance
             </div>
-            <h1 style={{ margin: '14px 0', fontSize: '2.1rem', fontWeight: 800, lineHeight: 1.25 }}>
+            <h1 style={{ margin: '14px 0', fontSize: '2.1rem', fontWeight: 800, lineHeight: 1.25, color: '#ffffff' }}>
               National Skill Ecosystem Lifecycle & Onboarding
             </h1>
             <p style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.8 }}>

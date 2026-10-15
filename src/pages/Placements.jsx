@@ -67,7 +67,7 @@ export default function Placements() {
   });
 
   const getHeaders = () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
     return { Authorization: `Bearer ${token}` };
   };
 
